@@ -295,6 +295,7 @@
   <div class="spacer"></div>
   <div id="dis-host-btn" style="display:none;margin-top:20px;">
     <button class="btn btn-amber" onclick="startVoting()">Start Voting →</button>
+    <button class="btn btn-secondary" onclick="restartGame()" style="margin-top:10px;">↺ Restart Game</button>
   </div>
   <div id="dis-wait" style="display:none;text-align:center;color:var(--muted);padding:18px;font-size:0.9rem;">
     Waiting for host to start voting…
@@ -374,7 +375,8 @@
   </div>
   <div class="spacer"></div>
   <div id="res-host-btn" style="display:none;" class="mt16">
-    <button class="btn btn-primary" onclick="playAgain()">Play Again</button>
+    <button class="btn btn-primary" onclick="restartGame()">↺ Restart Game</button>
+    <button class="btn btn-secondary" onclick="playAgain()" style="margin-top:10px;">Back to Lobby</button>
   </div>
   <div id="res-leave-btn" style="display:none;" class="mt16">
     <button class="btn btn-secondary" onclick="leaveRoom()">Leave Room</button>
@@ -971,8 +973,26 @@ window.submitGuess = async function() {
 };
 
 // ─────────────────────────────────────────────────────────────
-//  PLAY AGAIN / LEAVE
+//  RESTART / PLAY AGAIN / LEAVE
 // ─────────────────────────────────────────────────────────────
+window.restartGame = async function() {
+  const entries = playersSorted(roomState.players);
+  if (entries.length < 3) { toast('Need at least 3 players'); return; }
+
+  const cats    = Object.keys(WORDS);
+  const cat     = cats[Math.floor(Math.random() * cats.length)];
+  const wordArr = WORDS[cat];
+  const word    = wordArr[Math.floor(Math.random() * wordArr.length)];
+  const fakeId  = entries[Math.floor(Math.random() * entries.length)][0];
+
+  selVote = null; didVote = false;
+  await update(ref(db, `rooms/${roomCode}`), {
+    status: 'revealing', category: cat, word, fakeId, round: 1,
+    startedAt: Date.now(), votes: null, eliminated: null,
+    lastEliminated: null, fakeGuess: null, guessResult: null, fakeWon: null,
+  });
+};
+
 window.playAgain = async function() {
   selVote = null; didVote = false;
   await set(ref(db, `rooms/${roomCode}`), {
