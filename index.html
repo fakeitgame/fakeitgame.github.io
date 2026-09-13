@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Fake It</title>
+  <style>
+    :root {
+      --bg: #0d0d1a;
+      --surface: #1a1a2e;
+      --card: #252540;
+      --border: #3a3a5c;
+      --primary: #7c3aed;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --green: #10b981;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+    .screen {
+      display: none;
+      flex-direction: column;
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding: 24px 20px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .screen.active { display: flex; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+    /* Logo */
+    .logo { text-align:center; padding:40px 0 32px; }
+    .logo h1 { font-size:3.2rem; font-weight:900; letter-spacing:-2px; }
+    .logo h1 .fake { color:var(--red); }
+    .logo h1 .it { color:var(--amber); }
+    .logo p { color:var(--muted); margin-top:8px; font-size:0.95rem; }
+
+    /* Inputs */
+    .field { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+    .field label { font-size:0.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; }
+    input[type="text"] {
+      width:100%; padding:16px; background:var(--card); border:2px solid var(--border);
+      border-radius:var(--radius); color:var(--text); font-size:1.05rem; outline:none;
+      transition:border-color 0.2s;
+    }
+    input[type="text"]:focus { border-color:var(--primary); }
+    input[type="text"]::placeholder { color:var(--muted); }
+
+    /* Buttons */
+    .btn {
+      width:100%; padding:18px; border:none; border-radius:var(--radius);
+      font-size:1.05rem; font-weight:700; cursor:pointer;
+      transition:transform 0.1s, opacity 0.2s; letter-spacing:0.2px;
+    }
+    .btn:active { transform:scale(0.97); }
+    .btn:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+    .btn-primary { background:var(--primary); color:white; }
+    .btn-secondary { background:var(--card); color:var(--text); border:2px solid var(--border); }
+    .btn-red { background:var(--red); color:white; }
+    .btn-green { background:var(--green); color:white; }
+    .btn-amber { background:var(--amber); color:#111; }
+
+    .divider {
+      display:flex; align-items:center; gap:12px; margin:20px 0;
+      color:var(--muted); font-size:0.85rem;
+    }
+    .divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--border); }
+
+    /* Room code */
+    .room-code {
+      text-align:center; padding:24px; background:var(--surface);
+      border:2px dashed var(--primary); border-radius:var(--radius); margin-bottom:24px;
+    }
+    .room-code .label { font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:2px; }
+    .room-code .code { font-size:3rem; font-weight:900; letter-spacing:8px; color:var(--amber); margin:8px 0; }
+    .share-btn { background:none; border:none; color:var(--muted); font-size:0.85rem; cursor:pointer; text-decoration:underline; }
+
+    /* Section header */
+    .sec-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+    .sec-header h3 { font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); font-weight:600; }
+
+    /* Player list */
+    .player-list { display:flex; flex-direction:column; gap:10px; }
+    .player-item {
+      display:flex; align-items:center; gap:12px; padding:14px 16px;
+      background:var(--surface); border-radius:12px; border:1px solid var(--border);
+    }
+    .avatar {
+      width:36px; height:36px; border-radius:50%; display:flex; align-items:center;
+      justify-content:center; font-weight:700; font-size:0.9rem; flex-shrink:0;
+    }
+    .pname { flex:1; font-weight:600; }
+    .badge { font-size:0.72rem; padding:3px 8px; border-radius:20px; font-weight:700; }
+    .badge-host { background:var(--primary); color:white; }
+    .badge-you { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
+
+    /* Reveal */
+    .reveal-body {
+      flex:1; display:flex; flex-direction:column; align-items:center;
+      justify-content:center; text-align:center; padding:32px 16px;
+    }
+    .reveal-emoji { font-size:5rem; margin-bottom:20px; }
+    .reveal-eyebrow { font-size:0.85rem; color:var(--muted); text-transform:uppercase; letter-spacing:2px; margin-bottom:8px; }
+    .reveal-word { font-size:3rem; font-weight:900; line-height:1; margin-bottom:12px; }
+    .reveal-cat { font-size:0.95rem; color:var(--muted); margin-bottom:20px; }
+    .reveal-hint {
+      padding:16px 20px; background:var(--surface); border-radius:12px;
+      font-size:0.92rem; color:var(--muted); line-height:1.55; max-width:340px;
+    }
+
+    /* Vote players */
+    .vote-item {
+      display:flex; align-items:center; gap:12px; padding:16px;
+      background:var(--surface); border:2px solid var(--border);
+      border-radius:12px; cursor:pointer; margin-bottom:10px;
+      transition:border-color 0.15s, background 0.15s;
+    }
+    .vote-item:hover:not(.self):not(.locked) { border-color:var(--primary); }
+    .vote-item.selected { border-color:var(--red); background:rgba(239,68,68,0.1); }
+    .vote-item.self { opacity:0.4; cursor:not-allowed; }
+    .vote-item.locked { cursor:default; }
+
+    /* Vote progress */
+    .vote-progress { text-align:center; color:var(--muted); font-size:0.9rem; margin:8px 0 4px; }
+    .progress-bar { height:4px; background:var(--border); border-radius:2px; margin-bottom:20px; }
+    .progress-fill { height:100%; background:var(--green); border-radius:2px; transition:width 0.3s; }
+
+    /* Results */
+    .results-top { text-align:center; padding:28px 0 20px; }
+    .results-emoji { font-size:4rem; margin-bottom:10px; }
+    .results-title { font-size:2rem; font-weight:900; }
+    .results-sub { color:var(--muted); margin-top:6px; }
+    .card {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:var(--radius); padding:18px; margin-bottom:14px;
+    }
+    .card-label { font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:8px; }
+    .card-value { font-size:1.6rem; font-weight:900; }
+    .winner-box {
+      padding:18px; border-radius:var(--radius); text-align:center;
+      font-weight:700; font-size:1.05rem; margin-bottom:16px;
+    }
+    .winner-players { background:rgba(16,185,129,0.15); border:2px solid var(--green); color:var(--green); }
+    .winner-fake { background:rgba(239,68,68,0.15); border:2px solid var(--red); color:var(--red); }
+
+    /* Guess form */
+    .guess-row { display:flex; gap:10px; margin-top:12px; }
+    .guess-row input {
+      flex:1; padding:14px; background:var(--bg); border:2px solid var(--border);
+      border-radius:var(--radius); color:var(--text); font-size:1rem; outline:none;
+    }
+    .guess-row input:focus { border-color:var(--primary); }
+    .guess-row button {
+      padding:14px 20px; background:var(--primary); color:white; border:none;
+      border-radius:var(--radius); font-weight:700; cursor:pointer; font-size:1rem;
+    }
+
+    /* Status bar */
+    .status-bar {
+      text-align:center; padding:12px; background:var(--surface);
+      border-radius:12px; color:var(--muted); font-size:0.9rem; margin-bottom:20px;
+    }
+
+    /* Toast */
+    .toast {
+      position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+      background:var(--red); color:white; padding:12px 24px; border-radius:40px;
+      font-weight:600; font-size:0.9rem; z-index:999; opacity:0;
+      transition:opacity 0.25s; pointer-events:none; white-space:nowrap;
+    }
+    .toast.show { opacity:1; }
+
+    /* Config warning */
+    .config-warn {
+      background:rgba(245,158,11,0.1); border:2px solid var(--amber);
+      border-radius:var(--radius); padding:16px; margin-bottom:20px;
+      font-size:0.88rem; color:var(--amber); line-height:1.55;
+    }
+    .config-warn a { color:var(--amber); }
+
+    .spacer { flex:1; }
+    .mt16 { margin-top:16px; }
+    .scroll { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  </style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- HOME -->
+<div class="screen" id="screen-home">
+  <div class="logo">
+    <h1><span class="fake">FAKE</span> <span class="it">IT</span></h1>
+    <p>The social bluffing party game</p>
+  </div>
+  <div id="config-warn-box"></div>
+  <div class="field">
+    <label>Your Name</label>
+    <input type="text" id="inp-name" placeholder="Enter your name" maxlength="20" autocomplete="off">
+  </div>
+  <button class="btn btn-primary" onclick="createRoom()">Create Room</button>
+  <div class="divider">or join with a code</div>
+  <div class="field">
+    <label>Room Code</label>
+    <input type="text" id="inp-code" placeholder="XXXXXX" maxlength="6" autocomplete="off"
+      style="text-transform:uppercase;letter-spacing:6px;font-size:1.4rem;text-align:center;">
+  </div>
+  <button class="btn btn-secondary" onclick="joinRoom()">Join Room</button>
+</div>
+
+<!-- LOBBY -->
+<div class="screen" id="screen-lobby">
+  <div class="room-code">
+    <div class="label">Room Code</div>
+    <div class="code" id="lob-code">------</div>
+    <button class="share-btn" onclick="shareCode()">tap to copy &amp; share</button>
+  </div>
+  <div class="sec-header">
+    <h3>Players (<span id="lob-count">0</span>)</h3>
+    <span style="font-size:0.82rem;color:var(--muted)">Min. 3 to start</span>
+  </div>
+  <div class="player-list scroll" id="lob-players"></div>
+  <div class="spacer"></div>
+  <div id="lob-host-ctrls" style="display:none;">
+    <button class="btn btn-green" id="btn-start" onclick="startGame()" disabled>Start Game</button>
+  </div>
+  <div id="lob-wait" style="display:none;text-align:center;color:var(--muted);padding:18px;font-size:0.9rem;">
+    Waiting for host to start…
+  </div>
+</div>
+
+<!-- REVEAL -->
+<div class="screen" id="screen-reveal">
+  <div class="reveal-body" id="reveal-body"></div>
+  <div id="reveal-host-btn" style="display:none;">
+    <button class="btn btn-primary" onclick="startDiscussion()">Everyone's seen their role →</button>
+  </div>
+</div>
+
+<!-- DISCUSS -->
+<div class="screen" id="screen-discuss">
+  <div class="status-bar">💬 Discussion Phase</div>
+  <div style="text-align:center;margin-bottom:24px;">
+    <div style="font-size:0.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Category</div>
+    <div style="font-size:2.2rem;font-weight:900;" id="dis-cat">—</div>
+    <div style="font-size:0.85rem;color:var(--muted);margin-top:8px;">Ask each other questions about the topic</div>
+  </div>
+  <div class="sec-header"><h3>Players</h3></div>
+  <div class="player-list scroll" id="dis-players"></div>
+  <div class="spacer"></div>
+  <div id="dis-host-btn" style="display:none;margin-top:20px;">
+    <button class="btn btn-amber" onclick="startVoting()">Start Voting →</button>
+  </div>
+  <div id="dis-wait" style="display:none;text-align:center;color:var(--muted);padding:18px;font-size:0.9rem;">
+    Waiting for host to start voting…
+  </div>
+</div>
+
+<!-- VOTE -->
+<div class="screen" id="screen-vote">
+  <div class="status-bar">🗳️ Vote for the Fake</div>
+  <div class="vote-progress"><span id="v-count">0</span> / <span id="v-total">0</span> voted</div>
+  <div class="progress-bar"><div class="progress-fill" id="v-bar" style="width:0%"></div></div>
+  <div style="color:var(--muted);font-size:0.88rem;text-align:center;margin-bottom:14px;">Who is the Fake?</div>
+  <div class="scroll" id="vote-list"></div>
+  <div class="spacer"></div>
+  <div id="v-submit">
+    <button class="btn btn-red" id="btn-vote" onclick="submitVote()" disabled>Cast My Vote</button>
+  </div>
+  <div id="v-wait" style="display:none;text-align:center;color:var(--muted);padding:16px;font-size:0.9rem;">
+    Vote cast! Waiting for everyone…
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div class="screen" id="screen-results">
+  <div class="results-top">
+    <div class="results-emoji" id="res-emoji">🎭</div>
+    <div class="results-title" id="res-title">Results</div>
+    <div class="results-sub" id="res-sub"></div>
+  </div>
+  <div class="scroll">
+    <div class="card">
+      <div class="card-label">The Fake Was</div>
+      <div class="card-value" id="res-fake-name" style="color:var(--red)">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label">The Word Was</div>
+      <div class="card-value" id="res-word" style="color:var(--amber)">—</div>
+      <div style="font-size:0.82rem;color:var(--muted);margin-top:4px;" id="res-cat">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Vote Tally</div>
+      <div id="res-tally"></div>
+    </div>
+    <div id="res-guess-box" style="display:none;">
+      <div class="card" style="border-color:var(--amber);">
+        <div style="font-weight:700;margin-bottom:10px;">⚡ Last chance for the Fake!</div>
+        <div style="color:var(--muted);font-size:0.88rem;margin-bottom:4px;" id="res-guess-label"></div>
+        <div id="res-guess-input">
+          <div class="guess-row">
+            <input type="text" id="inp-guess" placeholder="Guess the word…" autocomplete="off">
+            <button onclick="submitGuess()">→</button>
+          </div>
+        </div>
+        <div id="res-guess-result" style="display:none;font-weight:700;text-align:center;font-size:1.1rem;margin-top:12px;"></div>
+      </div>
+    </div>
+    <div class="winner-box" id="res-winner" style="display:none;"></div>
+  </div>
+  <div class="spacer"></div>
+  <div id="res-host-btn" style="display:none;" class="mt16">
+    <button class="btn btn-primary" onclick="playAgain()">Play Again</button>
+  </div>
+  <div id="res-leave-btn" style="display:none;" class="mt16">
+    <button class="btn btn-secondary" onclick="leaveRoom()">Leave Room</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
+import { getDatabase, ref, set, get, update, onValue, remove }
+  from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js';
+
+// ─────────────────────────────────────────────────────────────
+//  FIREBASE CONFIG  ← paste your config here
+// ─────────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey:            "AIzaSyBgYFEUMHWkiJpkeXzIIUN11PlmkAJBjyE",
+  authDomain:        "fakeitdb.firebaseapp.com",
+  databaseURL:       "https://fakeitdb-default-rtdb.firebaseio.com",
+  projectId:         "fakeitdb",
+  storageBucket:     "fakeitdb.firebasestorage.app",
+  messagingSenderId: "306495597744",
+  appId:             "1:306495597744:web:36736a6c0d89e97d315f75"
+};
+// ─────────────────────────────────────────────────────────────
+
+const IS_CONFIGURED = !firebaseConfig.apiKey.startsWith('YOUR');
+
+let app, db;
+if (IS_CONFIGURED) {
+  app = initializeApp(firebaseConfig);
+  db  = getDatabase(app);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  WORD LISTS
+// ─────────────────────────────────────────────────────────────
+const WORDS = {
+  "Food":           ["Pizza","Sushi","Tacos","Hamburger","Ice Cream","Pasta","Steak","Pancakes","Ramen","Curry","Donuts","Waffles","Nachos","Hot Dog","Cheesecake"],
+  "Animals":        ["Elephant","Penguin","Shark","Giraffe","Dolphin","Tiger","Eagle","Kangaroo","Flamingo","Gorilla","Chameleon","Narwhal","Platypus","Sloth","Axolotl"],
+  "Movies":         ["Titanic","Avatar","Inception","Joker","Frozen","The Avengers","Jaws","The Matrix","Shrek","Toy Story","The Lion King","Interstellar","Get Out","Parasite","Mad Max"],
+  "Sports":         ["Soccer","Basketball","Tennis","Swimming","Boxing","Skiing","Golf","Volleyball","Gymnastics","Surfing","Skateboarding","Archery","Rock Climbing","Fencing","Polo"],
+  "Places":         ["Paris","New York","Tokyo","Sydney","London","Dubai","Rome","Bali","Las Vegas","Machu Picchu","Sahara Desert","Antarctica","Amazon Rainforest","Niagara Falls","Santorini"],
+  "Jobs":           ["Doctor","Pilot","Chef","Teacher","Astronaut","Firefighter","Lawyer","Detective","Surgeon","Archaeologist","Magician","Tattoo Artist","Stunt Person","Bomb Disposal","Sommelier"],
+  "TV Shows":       ["Friends","Game of Thrones","Breaking Bad","Stranger Things","The Office","Lost","The Simpsons","Seinfeld","Black Mirror","Squid Game","The Crown","Peaky Blinders","Succession","The Wire","Chernobyl"],
+  "Music Genres":   ["The Beatles","Jazz","Hip-Hop","Classical","Rock","Country","Pop","EDM","Reggae","K-Pop","Heavy Metal","Blues","Punk","R&B","Opera"],
+  "Hobbies":        ["Gardening","Painting","Gaming","Hiking","Cooking","Photography","Dancing","Reading","Knitting","Woodworking","Birdwatching","Cosplay","Calligraphy","Beekeeping","Origami"],
+  "Famous People":  ["Taylor Swift","Elon Musk","Beyoncé","Barack Obama","Cristiano Ronaldo","Lady Gaga","Leonardo DiCaprio","Oprah Winfrey","Albert Einstein","Shakespeare","Cleopatra","Napoleon","Marie Curie","Picasso","Muhammad Ali"],
+  "Vehicles":       ["Ferrari","Helicopter","Submarine","Hot Air Balloon","Skateboard","Monster Truck","Gondola","Tank","Rocket Ship","Rickshaw","Hovercraft","Dog Sled","Segway","Tuk-Tuk","Blimp"],
+  "Party Things":   ["Birthday Cake","Confetti","Balloons","DJ","Limbo","Piñata","Karaoke","Party Hats","Streamers","Photo Booth","Sparklers","Champagne","Dance Floor","Pinata","Costume"],
+};
+
+// ─────────────────────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────────────────────
+let playerId   = localStorage.getItem('fakeIt_pid') || genId(12);
+let roomCode   = null;
+let playerName = null;
+let isHost     = false;
+let roomUnsub  = null;
+let roomState  = null;
+let selVote    = null;
+let didVote    = false;
+
+localStorage.setItem('fakeIt_pid', playerId);
+
+// ─────────────────────────────────────────────────────────────
+//  UTILS
+// ─────────────────────────────────────────────────────────────
+function genId(n=8) { return Math.random().toString(36).substr(2,n); }
+
+function genCode() {
+  const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:6}, () => c[Math.floor(Math.random()*c.length)]).join('');
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+function toast(msg, ok=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = ok ? 'var(--green)' : 'var(--red)';
+  t.classList.add('show');
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function avatarColor(name) {
+  const palette = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626','#0891b2','#c026d3','#0d9488'];
+  let h = 0;
+  for (const c of String(name)) h = (h*31 + c.charCodeAt(0)) | 0;
+  return palette[Math.abs(h) % palette.length];
+}
+
+function playersSorted(players) {
+  return Object.entries(players || {}).sort((a,b) => a[1].joinedAt - b[1].joinedAt);
+}
+
+function avatarEl(name, size=36) {
+  const col = avatarColor(name);
+  const ini = String(name).charAt(0).toUpperCase();
+  return `<div class="avatar" style="width:${size}px;height:${size}px;background:${col};font-size:${size*0.4}px">${ini}</div>`;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  HOME
+// ─────────────────────────────────────────────────────────────
+(function init() {
+  const saved = localStorage.getItem('fakeIt_name');
+  if (saved) document.getElementById('inp-name').value = saved;
+
+  if (!IS_CONFIGURED) {
+    document.getElementById('config-warn-box').innerHTML = `
+      <div class="config-warn">
+        <strong>Setup needed:</strong> Open this file in a text editor and replace the Firebase config block near the top of the &lt;script&gt; tag.<br><br>
+        1. Go to <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a><br>
+        2. Create a project → Build → Realtime Database → Create database (test mode)<br>
+        3. Project Settings → Your apps → Add web app → copy the config
+      </div>`;
+  }
+
+  showScreen('home');
+})();
+
+document.getElementById('inp-code').addEventListener('input', function() {
+  this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+});
+
+window.createRoom = async function() {
+  if (!IS_CONFIGURED) { toast('Configure Firebase first (see instructions above)'); return; }
+  const name = document.getElementById('inp-name').value.trim();
+  if (!name) { toast('Enter your name first'); return; }
+
+  playerName = name;
+  roomCode   = genCode();
+  isHost     = true;
+  localStorage.setItem('fakeIt_name', name);
+
+  try {
+    await set(ref(db, `rooms/${roomCode}`), {
+      host: playerId,
+      status: 'lobby',
+      createdAt: Date.now(),
+      players: { [playerId]: { name, joinedAt: Date.now() } }
+    });
+    subscribeRoom();
+    showScreen('lobby');
+    document.getElementById('lob-code').textContent = roomCode;
+  } catch(e) {
+    toast('Failed to create room — check Firebase config');
+    console.error(e);
+  }
+};
+
+window.joinRoom = async function() {
+  if (!IS_CONFIGURED) { toast('Configure Firebase first'); return; }
+  const name = document.getElementById('inp-name').value.trim();
+  const code = document.getElementById('inp-code').value.trim().toUpperCase();
+  if (!name) { toast('Enter your name first'); return; }
+  if (code.length !== 6) { toast('Enter the full 6-character room code'); return; }
+
+  try {
+    const snap = await get(ref(db, `rooms/${code}`));
+    if (!snap.exists()) { toast('Room not found'); return; }
+    const room = snap.val();
+    if (room.status !== 'lobby') { toast('Game already in progress'); return; }
+
+    playerName = name;
+    roomCode   = code;
+    isHost     = room.host === playerId;
+    localStorage.setItem('fakeIt_name', name);
+
+    await set(ref(db, `rooms/${code}/players/${playerId}`), { name, joinedAt: Date.now() });
+    subscribeRoom();
+    showScreen('lobby');
+    document.getElementById('lob-code').textContent = code;
+  } catch(e) {
+    toast('Connection failed');
+    console.error(e);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+//  FIREBASE SUBSCRIPTION
+// ─────────────────────────────────────────────────────────────
+function subscribeRoom() {
+  if (roomUnsub) roomUnsub();
+  roomUnsub = onValue(ref(db, `rooms/${roomCode}`), snap => {
+    if (!snap.exists()) { toast('Room closed'); showScreen('home'); return; }
+    roomState = snap.val();
+    isHost    = roomState.host === playerId;
+    dispatch(roomState);
+  });
+}
+
+function dispatch(room) {
+  switch (room.status) {
+    case 'lobby':      renderLobby(room);      break;
+    case 'revealing':  renderReveal(room);     break;
+    case 'discussing': renderDiscussion(room); break;
+    case 'voting':     renderVoting(room);     break;
+    case 'results':    renderResults(room);    break;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  LOBBY
+// ─────────────────────────────────────────────────────────────
+function renderLobby(room) {
+  showScreen('lobby');
+  document.getElementById('lob-code').textContent = roomCode;
+  const entries = playersSorted(room.players);
+  document.getElementById('lob-count').textContent = entries.length;
+
+  document.getElementById('lob-players').innerHTML = entries.map(([id, p]) => `
+    <div class="player-item">
+      ${avatarEl(p.name)}
+      <div class="pname">${esc(p.name)}</div>
+      ${id === room.host ? '<span class="badge badge-host">Host</span>' : ''}
+      ${id === playerId  ? '<span class="badge badge-you">You</span>'  : ''}
+    </div>`).join('');
+
+  document.getElementById('lob-host-ctrls').style.display = isHost ? 'block' : 'none';
+  document.getElementById('lob-wait').style.display        = isHost ? 'none'  : 'block';
+
+  const btn = document.getElementById('btn-start');
+  const n = entries.length;
+  btn.disabled    = n < 3;
+  btn.textContent = n < 3 ? `Need ${3 - n} more player${n === 2 ? '' : 's'}` : `Start Game (${n} players)`;
+}
+
+window.shareCode = function() {
+  const msg = `Join my Fake It room! Code: ${roomCode}`;
+  if (navigator.share) navigator.share({ title:'Fake It', text: msg }).catch(()=>{});
+  else navigator.clipboard.writeText(msg).then(() => toast('Copied!', true)).catch(()=> toast('Code: ' + roomCode, true));
+};
+
+// ─────────────────────────────────────────────────────────────
+//  START GAME
+// ─────────────────────────────────────────────────────────────
+window.startGame = async function() {
+  const entries = playersSorted(roomState.players);
+  if (entries.length < 3) { toast('Need at least 3 players'); return; }
+
+  const cats    = Object.keys(WORDS);
+  const cat     = cats[Math.floor(Math.random() * cats.length)];
+  const wordArr = WORDS[cat];
+  const word    = wordArr[Math.floor(Math.random() * wordArr.length)];
+  const fakeId  = entries[Math.floor(Math.random() * entries.length)][0];
+
+  await update(ref(db, `rooms/${roomCode}`), {
+    status: 'revealing', category: cat, word, fakeId,
+    startedAt: Date.now(), votes: null, fakeGuess: null, guessResult: null,
+  });
+};
+
+// ─────────────────────────────────────────────────────────────
+//  REVEAL
+// ─────────────────────────────────────────────────────────────
+function renderReveal(room) {
+  showScreen('reveal');
+  const isFake = room.fakeId === playerId;
+
+  document.getElementById('reveal-body').innerHTML = isFake ? `
+    <div class="reveal-emoji">🕵️</div>
+    <div class="reveal-eyebrow" style="color:var(--red)">You Are</div>
+    <div class="reveal-word" style="color:var(--red)">THE FAKE</div>
+    <div class="reveal-cat">Category: <strong>${esc(room.category)}</strong></div>
+    <div class="reveal-hint">
+      You don't know the secret word. Listen carefully, ask vague questions,
+      and try to figure it out. If you get caught, you still get one guess!
+    </div>` : `
+    <div class="reveal-emoji">🤫</div>
+    <div class="reveal-eyebrow" style="color:var(--green)">The Word Is</div>
+    <div class="reveal-word" style="color:var(--amber)">${esc(room.word)}</div>
+    <div class="reveal-cat">Category: <strong>${esc(room.category)}</strong></div>
+    <div class="reveal-hint">
+      Don't say the word directly! Ask clever questions. Try to expose
+      the Fake — but don't make it too obvious or they'll guess the word.
+    </div>`;
+
+  document.getElementById('reveal-host-btn').style.display = isHost ? 'block' : 'none';
+}
+
+window.startDiscussion = async function() {
+  await update(ref(db, `rooms/${roomCode}`), { status: 'discussing' });
+};
+
+// ─────────────────────────────────────────────────────────────
+//  DISCUSSION
+// ─────────────────────────────────────────────────────────────
+function renderDiscussion(room) {
+  showScreen('discuss');
+  document.getElementById('dis-cat').textContent = room.category;
+
+  document.getElementById('dis-players').innerHTML = playersSorted(room.players).map(([id, p]) => `
+    <div class="player-item">
+      ${avatarEl(p.name)}
+      <div class="pname">${esc(p.name)}${id === playerId ? ' <span style="color:var(--muted);font-weight:400">(you)</span>' : ''}</div>
+      ${id === room.host ? '<span class="badge badge-host">Host</span>' : ''}
+    </div>`).join('');
+
+  document.getElementById('dis-host-btn').style.display = isHost ? 'block' : 'none';
+  document.getElementById('dis-wait').style.display      = isHost ? 'none'  : 'block';
+}
+
+window.startVoting = async function() {
+  await update(ref(db, `rooms/${roomCode}`), { status: 'voting' });
+};
+
+// ─────────────────────────────────────────────────────────────
+//  VOTING
+// ─────────────────────────────────────────────────────────────
+function renderVoting(room) {
+  showScreen('vote');
+  const votes   = room.votes || {};
+  const players = playersSorted(room.players);
+  const total   = players.length;
+  const cast    = Object.keys(votes).length;
+  didVote = !!votes[playerId];
+
+  document.getElementById('v-count').textContent = cast;
+  document.getElementById('v-total').textContent = total;
+  document.getElementById('v-bar').style.width   = (total ? cast/total*100 : 0) + '%';
+
+  document.getElementById('vote-list').innerHTML = players.map(([id, p]) => {
+    const self     = id === playerId;
+    const selected = selVote === id && !didVote;
+    let cls = 'vote-item';
+    if (self)          cls += ' self';
+    else if (didVote)  cls += ' locked';
+    if (selected)      cls += ' selected';
+
+    const hasVotedCheck = votes[id] !== undefined
+      ? `<span style="color:var(--green);font-size:1.1rem">✓</span>` : '';
+
+    return `
+      <div class="${cls}" onclick="${self || didVote ? '' : `selVoteFn('${id}')`}">
+        ${avatarEl(p.name)}
+        <div class="pname">${esc(p.name)}${self ? ' <span style="color:var(--muted);font-weight:400">(you)</span>' : ''}</div>
+        ${hasVotedCheck}
+      </div>`;
+  }).join('');
+
+  if (didVote) {
+    document.getElementById('v-submit').style.display = 'none';
+    document.getElementById('v-wait').style.display   = 'block';
+    if (cast >= total && isHost) resolveVotes(room);
+  } else {
+    document.getElementById('v-submit').style.display = 'block';
+    document.getElementById('v-wait').style.display   = 'none';
+    document.getElementById('btn-vote').disabled = !selVote;
+  }
+}
+
+window.selVoteFn = function(id) {
+  if (didVote) return;
+  selVote = id;
+  renderVoting(roomState);
+  document.getElementById('btn-vote').disabled = false;
+};
+
+window.submitVote = async function() {
+  if (!selVote || didVote) return;
+  await set(ref(db, `rooms/${roomCode}/votes/${playerId}`), selVote);
+};
+
+async function resolveVotes(room) {
+  if (room.status !== 'voting') return;
+  const votes = room.votes || {};
+  const tally = {};
+  for (const v of Object.values(votes)) tally[v] = (tally[v]||0) + 1;
+  const sorted   = Object.entries(tally).sort((a,b) => b[1]-a[1]);
+  const votedOut = sorted[0]?.[0] || null;
+  await update(ref(db, `rooms/${roomCode}`), { status:'results', votedOut });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RESULTS
+// ─────────────────────────────────────────────────────────────
+function renderResults(room) {
+  showScreen('results');
+  const players      = room.players || {};
+  const fakeName     = players[room.fakeId]?.name || '?';
+  const votedOutName = room.votedOut ? (players[room.votedOut]?.name || '?') : null;
+  const fakeCaught   = room.votedOut === room.fakeId;
+  const iAmFake      = room.fakeId === playerId;
+
+  document.getElementById('res-fake-name').textContent = fakeName;
+  document.getElementById('res-word').textContent      = room.word;
+  document.getElementById('res-cat').textContent       = `Category: ${room.category}`;
+
+  // Tally
+  const votes = room.votes || {};
+  const tally = {};
+  for (const [voter, target] of Object.entries(votes)) {
+    if (!tally[target]) tally[target] = [];
+    tally[target].push(players[voter]?.name || voter);
+  }
+  document.getElementById('res-tally').innerHTML = Object.entries(tally)
+    .sort((a,b) => b[1].length - a[1].length)
+    .map(([tid, voters]) => {
+      const tname   = players[tid]?.name || tid;
+      const isFake  = tid === room.fakeId;
+      return `
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          ${avatarEl(tname, 30)}
+          <div style="flex:1">
+            <span style="font-weight:600">${esc(tname)}</span>
+            ${isFake ? ' 🕵️' : ''}
+            <div style="font-size:0.78rem;color:var(--muted)">${voters.map(esc).join(', ')}</div>
+          </div>
+          <div style="font-weight:800;font-size:1.2rem;color:${isFake?'var(--red)':'var(--muted)'}">${voters.length}</div>
+        </div>`;
+    }).join('');
+
+  const guessBox   = document.getElementById('res-guess-box');
+  const winnerBox  = document.getElementById('res-winner');
+
+  if (fakeCaught) {
+    if (room.guessResult !== null && room.guessResult !== undefined) {
+      guessBox.style.display = 'none';
+      winnerBox.style.display = 'block';
+      if (room.guessResult === true) {
+        document.getElementById('res-emoji').textContent = '😈';
+        document.getElementById('res-title').textContent = 'Fake Wins!';
+        document.getElementById('res-sub').textContent   = `${fakeName} guessed the word!`;
+        winnerBox.className     = 'winner-box winner-fake';
+        winnerBox.textContent   = `🎉 ${fakeName} guessed "${room.word}" — Fake wins!`;
+      } else {
+        document.getElementById('res-emoji').textContent = '🏆';
+        document.getElementById('res-title').textContent = 'Players Win!';
+        document.getElementById('res-sub').textContent   = `${fakeName} guessed wrong`;
+        winnerBox.className     = 'winner-box winner-players';
+        winnerBox.textContent   = `🏆 The Fake guessed wrong — Players win!`;
+      }
+    } else {
+      document.getElementById('res-emoji').textContent = '🎯';
+      document.getElementById('res-title').textContent = 'Caught!';
+      document.getElementById('res-sub').textContent   = `${votedOutName} was voted out`;
+      guessBox.style.display  = 'block';
+      winnerBox.style.display = 'none';
+
+      const guessLabel = document.getElementById('res-guess-label');
+      const guessInput = document.getElementById('res-guess-input');
+      if (iAmFake) {
+        guessLabel.textContent         = 'You were caught! Guess the word to still win:';
+        guessInput.style.display       = 'block';
+        document.getElementById('res-guess-result').style.display = 'none';
+      } else {
+        guessLabel.textContent   = `${fakeName} is guessing the word…`;
+        guessInput.style.display = 'none';
+      }
+    }
+  } else {
+    guessBox.style.display  = 'none';
+    document.getElementById('res-emoji').textContent = '😈';
+    document.getElementById('res-title').textContent = 'Fake Wins!';
+    document.getElementById('res-sub').textContent   = `${fakeName} fooled everyone`;
+    winnerBox.style.display = 'block';
+    winnerBox.className     = 'winner-box winner-fake';
+    winnerBox.textContent   = `😈 ${fakeName} blended in perfectly — Fake wins!`;
+  }
+
+  document.getElementById('res-host-btn').style.display  = isHost ? 'block' : 'none';
+  document.getElementById('res-leave-btn').style.display = isHost ? 'none'  : 'block';
+}
+
+window.submitGuess = async function() {
+  const guess = document.getElementById('inp-guess').value.trim();
+  if (!guess) return;
+  const correct = guess.toLowerCase() === roomState.word.toLowerCase();
+  await update(ref(db, `rooms/${roomCode}`), { fakeGuess: guess, guessResult: correct });
+};
+
+// ─────────────────────────────────────────────────────────────
+//  PLAY AGAIN / LEAVE
+// ─────────────────────────────────────────────────────────────
+window.playAgain = async function() {
+  selVote = null; didVote = false;
+  await set(ref(db, `rooms/${roomCode}`), {
+    host: playerId, status: 'lobby', createdAt: Date.now(),
+    players: roomState.players
+  });
+};
+
+window.leaveRoom = function() {
+  if (roomUnsub) { roomUnsub(); roomUnsub = null; }
+  if (roomCode) remove(ref(db, `rooms/${roomCode}/players/${playerId}`)).catch(()=>{});
+  roomCode = roomState = null;
+  selVote = null; didVote = false;
+  showScreen('home');
+};
+</script>
+</body>
+</html>
