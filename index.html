@@ -637,12 +637,11 @@ window.startGame = async function() {
   const cat     = cats[Math.floor(Math.random() * cats.length)];
   const wordArr = WORDS[cat];
   const word    = wordArr[Math.floor(Math.random() * wordArr.length)];
-  const pool    = entries.filter(([id]) => id !== roomState.lastFakeId);
-  const fakeId  = (pool.length ? pool : entries)[Math.floor(Math.random() * (pool.length || entries.length))][0];
+  const fakeId  = entries[Math.floor(Math.random() * entries.length)][0];
 
   await update(ref(db, `rooms/${roomCode}`), {
     status: 'revealing', category: cat, word, fakeId, round: 1,
-    startedAt: Date.now(), votes: null, eliminated: null, lastFakeId: fakeId,
+    startedAt: Date.now(), votes: null, eliminated: null,
     lastEliminated: null, fakeGuess: null, guessResult: null,
   });
 };
