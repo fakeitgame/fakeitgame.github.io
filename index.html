@@ -285,6 +285,7 @@
     <div class="round-pill" id="dis-round" style="margin-bottom:0;margin-left:10px;">Round 1</div>
   </div>
   <div id="dis-spectator" class="spectator-bar" style="display:none;">👁️ You've been eliminated — spectating</div>
+  <div id="dis-tie" style="display:none;text-align:center;padding:10px 16px;background:rgba(245,158,11,0.1);border:1px solid var(--amber);border-radius:12px;color:var(--amber);font-size:0.88rem;font-weight:600;margin-bottom:16px;">🤝 It was a tie — no one was eliminated! Discuss again.</div>
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:0.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Category</div>
     <div style="font-size:2.2rem;font-weight:900;" id="dis-cat">—</div>
@@ -357,19 +358,6 @@
     <div class="card">
       <div class="card-label">Final Vote Tally</div>
       <div id="res-tally"></div>
-    </div>
-    <div id="res-guess-box" style="display:none;">
-      <div class="card" style="border-color:var(--amber);">
-        <div style="font-weight:700;margin-bottom:10px;">⚡ Last chance for the Fake!</div>
-        <div style="color:var(--muted);font-size:0.88rem;margin-bottom:4px;" id="res-guess-label"></div>
-        <div id="res-guess-input">
-          <div class="guess-row">
-            <input type="text" id="inp-guess" placeholder="Guess the word…" autocomplete="off">
-            <button onclick="submitGuess()">→</button>
-          </div>
-        </div>
-        <div id="res-guess-result" style="display:none;font-weight:700;text-align:center;font-size:1.1rem;margin-top:12px;"></div>
-      </div>
     </div>
     <div class="winner-box" id="res-winner" style="display:none;"></div>
   </div>
@@ -704,6 +692,7 @@ function renderDiscussion(room) {
   }).join('');
 
   const canControl = isHost && !amSpectator || isHost;
+  document.getElementById('dis-tie').style.display       = room.tiedRound ? 'block' : 'none';
   document.getElementById('dis-host-btn').style.display = isHost ? 'block' : 'none';
   document.getElementById('dis-wait').style.display      = isHost ? 'none'  : 'block';
 }
@@ -783,34 +772,45 @@ window.submitVote = async function() {
 async function resolveVotes(room) {
   if (room.status !== 'voting') return;
 
-  const votes  = room.votes || {};
-  const tally  = {};
+  const votes = room.votes || {};
+  const tally = {};
   for (const v of Object.values(votes)) tally[v] = (tally[v]||0) + 1;
-  const sorted    = Object.entries(tally).sort((a,b) => b[1]-a[1]);
-  const votedOut  = sorted[0]?.[0] || null;
+  const sorted   = Object.entries(tally).sort((a,b) => b[1]-a[1]);
+  const topCount = sorted[0]?.[1] || 0;
+  const tied     = sorted.filter(([,n]) => n === topCount);
 
-  if (!votedOut) return;
+  // Tie — no elimination, continue discussion
+  if (tied.length > 1) {
+    await update(ref(db, `rooms/${roomCode}`), {
+      status: 'discussing',
+      round: (room.round || 1) + 1,
+      votes: null,
+      tiedRound: true,
+    });
+    selVote = null; didVote = false;
+    return;
+  }
+
+  const votedOut = sorted[0][0];
 
   if (votedOut === room.fakeId) {
-    // Fake caught → game over
-    await update(ref(db, `rooms/${roomCode}`), { status: 'results', votedOut });
+    // Fake caught → game over, players win
+    await update(ref(db, `rooms/${roomCode}`), { status: 'results', votedOut, tiedRound: null });
   } else {
-    // Wrong person eliminated — add to eliminated map
+    // Wrong person eliminated
     const newEliminated = { ...(room.eliminated || {}), [votedOut]: true };
     const remaining     = activePlayers({ ...room, eliminated: newEliminated });
 
     if (remaining.length <= 2) {
       // Fake survives to final 2 — automatic win
       await update(ref(db, `rooms/${roomCode}`), {
-        status: 'results', votedOut, eliminated: newEliminated, fakeWon: true,
+        status: 'results', votedOut, eliminated: newEliminated, fakeWon: true, tiedRound: null,
       });
     } else {
-      // Continue — show elimination screen then next round
+      // Show elimination screen then next round
       await update(ref(db, `rooms/${roomCode}`), {
-        status: 'eliminated', votedOut,
-        lastEliminated: votedOut,
-        eliminated: newEliminated,
-        votes: null,
+        status: 'eliminated', votedOut, lastEliminated: votedOut,
+        eliminated: newEliminated, votes: null, tiedRound: null,
       });
     }
   }
@@ -905,55 +905,22 @@ function renderResults(room) {
         </div>`;
     }).join('') || '<div style="color:var(--muted);font-size:0.9rem">No votes cast</div>';
 
-  const guessBox  = document.getElementById('res-guess-box');
   const winnerBox = document.getElementById('res-winner');
+  winnerBox.style.display = 'block';
 
   if (room.fakeWon) {
-    // Fake survived until only 2 players remained
-    guessBox.style.display  = 'none';
-    winnerBox.style.display = 'block';
     document.getElementById('res-emoji').textContent = '😈';
     document.getElementById('res-title').textContent = 'Fake Wins!';
     document.getElementById('res-sub').textContent   = `${fakeName} survived to the end`;
     winnerBox.className   = 'winner-box winner-fake';
     winnerBox.textContent = `😈 ${fakeName} outlasted everyone — Fake wins!`;
-
   } else if (fakeCaught) {
-    if (room.guessResult !== null && room.guessResult !== undefined) {
-      guessBox.style.display = 'none';
-      winnerBox.style.display = 'block';
-      if (room.guessResult === true) {
-        document.getElementById('res-emoji').textContent = '😈';
-        document.getElementById('res-title').textContent = 'Fake Wins!';
-        document.getElementById('res-sub').textContent   = `${fakeName} guessed the word!`;
-        winnerBox.className   = 'winner-box winner-fake';
-        winnerBox.textContent = `🎉 ${fakeName} guessed "${room.word}" — Fake wins!`;
-      } else {
-        document.getElementById('res-emoji').textContent = '🏆';
-        document.getElementById('res-title').textContent = 'Players Win!';
-        document.getElementById('res-sub').textContent   = `${fakeName} guessed wrong`;
-        winnerBox.className   = 'winner-box winner-players';
-        winnerBox.textContent = `🏆 The Fake guessed wrong — Players win!`;
-      }
-    } else {
-      document.getElementById('res-emoji').textContent = '🎯';
-      document.getElementById('res-title').textContent = 'Caught!';
-      document.getElementById('res-sub').textContent   = `${votedOutName} was voted out`;
-      guessBox.style.display  = 'block';
-      winnerBox.style.display = 'none';
-
-      if (iAmFake) {
-        document.getElementById('res-guess-label').textContent = 'You were caught! Guess the word to still win:';
-        document.getElementById('res-guess-input').style.display = 'block';
-        document.getElementById('res-guess-result').style.display = 'none';
-      } else {
-        document.getElementById('res-guess-label').textContent = `${fakeName} is guessing the word…`;
-        document.getElementById('res-guess-input').style.display = 'none';
-      }
-    }
+    document.getElementById('res-emoji').textContent = '🏆';
+    document.getElementById('res-title').textContent = 'Players Win!';
+    document.getElementById('res-sub').textContent   = `${votedOutName} was voted out`;
+    winnerBox.className   = 'winner-box winner-players';
+    winnerBox.textContent = `🏆 The Fake has been caught — Players win!`;
   } else {
-    guessBox.style.display  = 'none';
-    winnerBox.style.display = 'block';
     document.getElementById('res-emoji').textContent = '😈';
     document.getElementById('res-title').textContent = 'Fake Wins!';
     document.getElementById('res-sub').textContent   = `${fakeName} fooled everyone`;
@@ -965,12 +932,6 @@ function renderResults(room) {
   document.getElementById('res-leave-btn').style.display = isHost ? 'none'  : 'block';
 }
 
-window.submitGuess = async function() {
-  const guess = document.getElementById('inp-guess').value.trim();
-  if (!guess) return;
-  const correct = guess.toLowerCase() === roomState.word.toLowerCase();
-  await update(ref(db, `rooms/${roomCode}`), { fakeGuess: guess, guessResult: correct });
-};
 
 // ─────────────────────────────────────────────────────────────
 //  RESTART / PLAY AGAIN / LEAVE
