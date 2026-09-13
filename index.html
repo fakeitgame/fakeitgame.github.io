@@ -107,6 +107,11 @@
     .badge-host { background:var(--primary); color:white; }
     .badge-you  { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
     .badge-out  { background:#3a1a1a; color:var(--red); border:1px solid var(--red); }
+    .order-num {
+      width:28px; height:28px; border-radius:50%; background:var(--primary);
+      color:white; display:flex; align-items:center; justify-content:center;
+      font-weight:800; font-size:0.82rem; flex-shrink:0;
+    }
 
     /* Round pill */
     .round-pill {
@@ -478,6 +483,19 @@ function isEliminated(room) {
   return !!(room.eliminated || {})[playerId];
 }
 
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function genSpeakingOrder(room) {
+  return shuffle(activePlayers(room).map(([id]) => id));
+}
+
 function avatarEl(name, size=36) {
   const col = avatarColor(name);
   const ini = String(name).charAt(0).toUpperCase();
@@ -665,7 +683,8 @@ function renderReveal(room) {
 }
 
 window.startDiscussion = async function() {
-  await update(ref(db, `rooms/${roomCode}`), { status: 'discussing' });
+  const speakingOrder = genSpeakingOrder(roomState);
+  await update(ref(db, `rooms/${roomCode}`), { status: 'discussing', speakingOrder });
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -676,20 +695,38 @@ function renderDiscussion(room) {
   document.getElementById('dis-cat').textContent   = room.category;
   document.getElementById('dis-round').textContent = `Round ${room.round || 1}`;
 
-  const eliminated = room.eliminated || {};
-  const amSpectator = isEliminated(room);
+  const eliminated    = room.eliminated || {};
+  const amSpectator   = isEliminated(room);
+  const speakingOrder = room.speakingOrder || activePlayers(room).map(([id]) => id);
+  const players       = room.players || {};
   document.getElementById('dis-spectator').style.display = amSpectator ? 'block' : 'none';
 
-  document.getElementById('dis-players').innerHTML = playersSorted(room.players).map(([id, p]) => {
-    const out = !!eliminated[id];
+  // Active players in speaking order, then eliminated players at the bottom
+  const activeRows = speakingOrder.map((id, i) => {
+    const p = players[id];
+    if (!p) return '';
+    const isMe = id === playerId;
     return `
-      <div class="player-item${out ? ' out' : ''}">
+      <div class="player-item" style="${isMe ? 'border-color:var(--primary);' : ''}">
+        <div class="order-num">${i + 1}</div>
         ${avatarEl(p.name)}
-        <div class="pname">${esc(p.name)}${id === playerId ? ' <span style="color:var(--muted);font-weight:400">(you)</span>' : ''}</div>
+        <div class="pname">${esc(p.name)}${isMe ? ' <span style="color:var(--muted);font-weight:400">(you)</span>' : ''}</div>
         ${id === room.host ? '<span class="badge badge-host">Host</span>' : ''}
-        ${out ? '<span class="badge badge-out">Eliminated</span>' : ''}
       </div>`;
   }).join('');
+
+  const elimRows = Object.keys(eliminated).map(id => {
+    const p = players[id];
+    if (!p) return '';
+    return `
+      <div class="player-item out">
+        ${avatarEl(p.name)}
+        <div class="pname">${esc(p.name)}</div>
+        <span class="badge badge-out">Eliminated</span>
+      </div>`;
+  }).join('');
+
+  document.getElementById('dis-players').innerHTML = activeRows + elimRows;
 
   const canControl = isHost && !amSpectator || isHost;
   document.getElementById('dis-tie').style.display       = room.tiedRound ? 'block' : 'none';
@@ -781,11 +818,13 @@ async function resolveVotes(room) {
 
   // Tie — no elimination, continue discussion
   if (tied.length > 1) {
+    const speakingOrder = genSpeakingOrder(room);
     await update(ref(db, `rooms/${roomCode}`), {
       status: 'discussing',
       round: (room.round || 1) + 1,
       votes: null,
       tiedRound: true,
+      speakingOrder,
     });
     selVote = null; didVote = false;
     return;
@@ -841,10 +880,12 @@ function renderEliminated(room) {
 }
 
 window.nextRound = async function() {
+  const speakingOrder = genSpeakingOrder(roomState);
   await update(ref(db, `rooms/${roomCode}`), {
     status: 'discussing',
     round: (roomState.round || 1) + 1,
     votes: null,
+    speakingOrder,
   });
   selVote = null;
   didVote = false;
