@@ -227,11 +227,49 @@
     .spacer { flex:1; }
     .mt16 { margin-top:16px; }
     .scroll { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+
+    /* Leave button */
+    .leave-btn {
+      position:fixed; top:16px; right:16px; z-index:100;
+      background:rgba(255,255,255,0.06); border:1px solid var(--border);
+      color:var(--muted); font-size:0.8rem; font-weight:600;
+      padding:7px 13px; border-radius:20px; cursor:pointer;
+      backdrop-filter:blur(8px); display:none;
+      transition:background 0.15s, color 0.15s;
+    }
+    .leave-btn:hover { background:rgba(239,68,68,0.15); color:var(--red); border-color:var(--red); }
+
+    /* Confirm overlay */
+    .confirm-overlay {
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7);
+      z-index:200; align-items:center; justify-content:center; padding:24px;
+    }
+    .confirm-overlay.show { display:flex; }
+    .confirm-box {
+      background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+      padding:28px 24px; width:100%; max-width:360px; text-align:center;
+    }
+    .confirm-box h3 { font-size:1.2rem; font-weight:800; margin-bottom:8px; }
+    .confirm-box p  { color:var(--muted); font-size:0.9rem; margin-bottom:24px; line-height:1.5; }
+    .confirm-btns   { display:flex; flex-direction:column; gap:10px; }
   </style>
 </head>
 <body>
 
 <div class="toast" id="toast"></div>
+
+<button class="leave-btn" id="leave-btn" onclick="confirmLeave()">✕ Leave</button>
+
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <h3>Leave Room?</h3>
+    <p>You'll exit the game. Others can keep playing.</p>
+    <div class="confirm-btns">
+      <button class="btn btn-red" onclick="leaveRoom()">Leave Room</button>
+      <button class="btn btn-secondary" onclick="closeConfirm()">Stay</button>
+    </div>
+  </div>
+</div>
 
 <!-- HOME -->
 <div class="screen" id="screen-home">
@@ -371,9 +409,6 @@
     <button class="btn btn-primary" onclick="restartGame()">↺ Restart Game</button>
     <button class="btn btn-secondary" onclick="playAgain()" style="margin-top:10px;">Back to Lobby</button>
   </div>
-  <div id="res-leave-btn" style="display:none;" class="mt16">
-    <button class="btn btn-secondary" onclick="leaveRoom()">Leave Room</button>
-  </div>
 </div>
 
 <script type="module">
@@ -448,7 +483,16 @@ function genCode() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + id).classList.add('active');
+  document.getElementById('leave-btn').style.display = id === 'home' ? 'none' : 'block';
 }
+
+window.confirmLeave = function() {
+  document.getElementById('confirm-overlay').classList.add('show');
+};
+
+window.closeConfirm = function() {
+  document.getElementById('confirm-overlay').classList.remove('show');
+};
 
 function toast(msg, ok=false) {
   const t = document.getElementById('toast');
@@ -969,8 +1013,7 @@ function renderResults(room) {
     winnerBox.textContent = `😈 ${fakeName} blended in perfectly — Fake wins!`;
   }
 
-  document.getElementById('res-host-btn').style.display  = isHost ? 'block' : 'none';
-  document.getElementById('res-leave-btn').style.display = isHost ? 'none'  : 'block';
+  document.getElementById('res-host-btn').style.display = isHost ? 'block' : 'none';
 }
 
 
